@@ -18,7 +18,7 @@ Each attack can be run by uncommenting one of the lines in the main.
 4. Open the [AutoSAGA_twomodel.py](AutoSAGA_twomodel.py) file in the Python IDE of your choice. Fill the downloaded model directory. Run the main.</li>
 
 
-- The default code loads one CNN model and one SNN model and runs Auto-SAGA attack, SAGA-attack, MIM attack, PGD attack and AutoPGD attack.
+- The default code first loads one CNN model and one SNN model. Then, it will run the Auto-SAGA attack, SAGA-attack, MIM attack, PGD attack and AutoPGD attack sequentially.
 - You can comment and uncomment the corresponding code to load different models.
 - Note that because different models might be trained with **different mean and std** for image normalization, we send the mean and std to each model for convenience.
 
