@@ -151,8 +151,8 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     batchSize = 128
     # batchSize = 32
     if dataset == 'CIFAR10':
-        mean = (0.4914, 0.4822, 0.4465)
-        std = (0.2023, 0.1994, 0.2010)
+        mean = (0.4914, 0.4822, 0.4465)     # set mean for dataset
+        std = (0.2023, 0.1994, 0.2010)      # set std for dataset
         imgSize = 32
         # mean = (0.5)
         # std = (0.5)
@@ -174,7 +174,7 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     modelPlusList = []
 
     #Create the synthetic model
-    # ================================Load CNN models==============================================
+    # # ================================Load CNN models==============================================
     # syntheticModel = resnet56.resnet56(32, numClasses)
     syntheticModel = VGG(vgg_name='VGG16', labels=numClasses, mean=mean, std=std)
     #ResNet-152
@@ -190,8 +190,9 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     modelPlusList.append(ModelPlus_CNN)
     synAcc = DMP.validateD(valLoader, syntheticModel)
     print("CNN Accuracy: ", synAcc)
-    # ================================Load CNN models==============================================
+    # # ================================Load CNN models==============================================
 
+    # # ================================Load Transformer models==============================================
     valLoader_resized = None
     # # syntheticModel, ModelPlus_CNN, defense_CNN, valLoader_resized = LoadBiT_R152()
     # # syntheticModel, ModelPlus_CNN, defense_CNN, valLoader_resized = LoadBiT_R101()
@@ -206,8 +207,10 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     # synAcc = DMP.validateD(valLoader, syntheticModel)
     # # synAcc = DMP.validateD(valLoader_resized, syntheticModel)
     # print("CNN Accuracy: ", synAcc)
+    # # ================================Load Transformer models==============================================
     # # ================================Load model 1==============================================
 
+    # # ================================Load SNN models==============================================
     ModelPlus_SNN_vgg, SNN_model_vgg = LoadDietSNN(modelDir1, dataset, batchSize, mean, std, timesteps=5)
     # ModelPlus_SNN_vgg, SNN_model_vgg = LoadDietSNN_resnet(modelDir1, dataset, batchSize, mean, std)
     modelPlusList.append(ModelPlus_SNN_vgg)
@@ -220,7 +223,8 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     # SNN_model_res.to(device)
     # transresAcc = DMP.validateD(valLoader, SNN_model_res)
     # print("trans resnet Accuracy: ", transresAcc)
-
+    # # ================================Load SNN models==============================================
+    # # ================================Load model 2==============================================
     numModels = 2
     totalSampleNum = len(valLoader.dataset)
     # Get accuracy array for each model
@@ -237,6 +241,7 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     numAttackSamples = 1000
     print('numAttackSamples: ', numAttackSamples)
 
+    # # ================================Get clean data that is correct on both models==============================================
     if valLoader_resized is None:
         cleanLoader = AttackWrappersProtoSAGA.GetFirstCorrectlyOverlappingSamplesBalanced(device, numAttackSamples, numClasses, valLoader,
                                                                   modelPlusList)
@@ -251,8 +256,11 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     # (cleanData, cleanTarget) = torch.load('./Clean_Sun Aug 14 01:25:44 2022.pt')
     # cleanLoader = DMP.TensorToDataLoader(cleanData, cleanTarget, transforms=None, batchSize=10,
     #                                            randomizer=None)
+    # # ================================Get clean data that is correct on both models==============================================
 
-    #Do the attack
+    # # ================================Do the attack==============================================
+
+    # # ======================================Auto SAGA attack=====================================================
     # dataLoaderForTraining = trainLoader
     # epsForAttacks = 0.05
     epsMax = 0.031
@@ -294,13 +302,15 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     print('ProtoSAGA attack successful rate: ', MV_ProtoSAGA_acc.data.cpu().numpy())
     # torch.save(advLoaderMIM, saveDir+"//AdvLoaderMIM")
     torch.cuda.empty_cache()
-
     # sys.exit()
+
+
+    # # ======================================Basic SAGA attack=====================================================
 
     print('Basic SAGA attack')
     coefficientArray = torch.zeros(2)
     # secondcoeff = 2.0000e-04
-    secondcoeff = 0.5
+    secondcoeff = 0.5       # set coefficent for SAGA attack that balance the impact of the two models
     coefficientArray[0] = 1.0 - secondcoeff
     coefficientArray[1] = secondcoeff
     print("Coeff Array:")
@@ -320,6 +330,7 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     MV_SAGA_acc = (accArraySAGA==0).sum() / numAttackSamples
     print('SAGA attack successful rate: ', MV_SAGA_acc.data.cpu().numpy())
 
+    # # ====================================== MIM attack for each model =====================================================
     print()
     numSteps = 40
     epsStep = 0.01
@@ -356,6 +367,7 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     print('MIM_B attack successful rate: ', ALL_MV_MIM_B_acc.data.cpu().numpy())
     torch.cuda.empty_cache()
 
+    # # ====================================== PGD attack for each model =====================================================
     print('PGD attack')
     advLoaderPGD = AttackWrappersWhiteBoxP_SAGA.PGDNativePytorch(device, cleanLoader, syntheticModel, ModelPlus_CNN, epsMax, epsStep, numSteps, clipMin, clipMax, targeted=False)
     accArrayPGD_A = torch.zeros(numAttackSamples).to(device)
@@ -383,7 +395,7 @@ def SNN_AutoSAGA_two(modelDir1, modelDir2, dataset):
     ALL_MV_PGD_B_acc = (accArrayPGD_B==0).sum() / numAttackSamples
     print('PGD_B attack successful rate: ', ALL_MV_PGD_B_acc.data.cpu().numpy())
 
-
+    # # ====================================== Auto PGD attack for each model =====================================================
     etaStart = 0.05
     numSteps = 40
     epsStep = 0.01
